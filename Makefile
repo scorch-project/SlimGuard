@@ -1,5 +1,5 @@
 TARGETS = libSlimGuard.so
-CC = gcc
+CC = cheribsd128n64-clang
 CXX = g++
 
 CFLAGS = -Wall -pedantic -O3 -Wno-deprecated-declarations -I./include

@@ -241,7 +241,7 @@ void get_canary(void *ptr, uint8_t index) {
     if(*end != HashPointer(ptr)) {
         Error("buffer overflow occured at %p, exiting now\n", ptr);
         Error("%x\n", HashPointer(ptr));
-        Error("[%p] %p %x %u %u\n", ptr, end, *end, Class[index].size, index);
+        Error("[%p] %p %x %u %u\n", ptr, (void*)end, *end, Class[index].size, index);
         exit(-1);
     }
 }
