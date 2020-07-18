@@ -18,7 +18,13 @@
 #define ETP (8) // entropy to 8 bits
 #define GP (10) // 1 guard page per GP pages
 #define BKT (1 << ETP) // bucket size
+
+#ifdef __CHERI_PURE_CAPABILITY__
 #define ALIGN (15) // alignment must be 128 bits for cheri purecap
+#else
+#define ALIGN (7)
+#endif
+
 #define MAX_EXP (17) // max size allocate
 #define MIN_EXP (6) // smallest blk
 #define FLI (MAX_EXP - MIN_EXP + 1) // num of first level index
@@ -29,7 +35,7 @@
 #define SEED_MAX (1 << 10)
 #define PAGE_SIZE (1 << 12)
 #define INDEX (FLI*SLI)
-#define BUCKET_SIZE (4UL * 1024UL * 1024UL * 1024UL) // 4GB
+#define BUCKET_SIZE (2UL * 1024UL * 1024UL * 1024UL) // 2GB
 
 int      log2_64(uint64_t value);
 uint8_t  sz2cls(uint32_t sz);
