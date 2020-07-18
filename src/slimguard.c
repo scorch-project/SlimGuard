@@ -116,14 +116,13 @@ void init_bucket(uint8_t index) {
         Class[index].head = NULL; // head of the sll contains free pointers
         Class[index].start = addr; // start address of the current bucket
         Class[index].current = Class[index].start; // bumper pointer
-        Class[index].stop = (void *)((uint64_t)addr + BUCKET_SIZE); // upper
+        Class[index].stop = addr + (intptr_t)BUCKET_SIZE; // upper
                                                                     // bound
         Class[index].size = cls2sz(index); // the size for current bucket
 
         for (int i = 0; i < BKT; i++) {
             Class[index].bucket[i] = Class[index].current;
-            Class[index].current = (void *) ((uint64_t)Class[index].current +
-                    (uint64_t)Class[index].size);
+            Class[index].current = Class[index].current + (intptr_t)Class[index].size;
         }
 
         Debug("BKT %d size: %d, start: %p\n", BKT, Class[index].size,
@@ -164,7 +163,7 @@ void *get_next(uint8_t index){
     }
 #endif
 
-    Class[index].current = (void *)((uint64_t)ret + (uint64_t)Class[index].size);
+    Class[index].current = ret + (intptr_t)Class[index].size;
 
     if(Class[index].current >= Class[index].stop){
         Error("not enough mem %u\n", Class[index].size);
