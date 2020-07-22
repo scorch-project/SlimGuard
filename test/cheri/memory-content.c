@@ -14,8 +14,6 @@ int main(void) {
     }
 
     for(int i=0; i<ALLOC_NUM; i++) {
-    	printf("check %d/%d\n", i, ALLOC_NUM);
-	fflush(stdout);
         assert(*(ptr[i]) == 0xDEADBEEFDEADBEEF);
         xxfree(ptr[i]);
     }

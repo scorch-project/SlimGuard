@@ -1,32 +1,61 @@
-#include <stdio.h>
-#include <slimguard.h>
+#include "../../include/slimguard.h"
+#include "../../include/slimguard-large.h"
+#include "../../include/sll.h"
+
 #include <assert.h>
 
 #define MAX_ALIGNMENT   (1024*1024)
+#define ITERATIONS      100
+#define VERBOSE         0
 
-int main(void) {
+int main(int argc, char **argv) {
     for(int alignment = 16; alignment<=MAX_ALIGNMENT; alignment*=2) {
+        void *ptrs[ITERATIONS];
+        void *ptrs2[ITERATIONS];
+        void *ptrs3[ITERATIONS];
 
-        void *ptr = xxmemalign(alignment, alignment);
-        assert(ptr);
-        printf("Required alignment 0x%x got pointer @%p\n", alignment, ptr);
-        assert(!((uint64_t)ptr % alignment));
-        memset(ptr, 0x0, alignment);
-        xxfree(ptr);
+        for(int i=0; i<ITERATIONS; i++) {
+            ptrs[i] = xxmemalign(alignment, alignment);
+            assert(ptrs[i]);
+#if VERBOSE == 1
+            printf("Required alignment 0x%x got pointer @%p\n", alignment,
+                    ptrs[i]);
+#endif
+            assert(!((uint64_t)ptrs[i] % alignment));
+            memset(ptrs[i], 0x0, alignment);
+        }
 
-        void *ptr2 = xxmemalign(alignment, alignment*2);
-        printf("Required alignment 0x%x got pointer @%p\n", alignment, ptr2);
-        assert(ptr2);
-        assert(!((uint64_t)ptr2 % alignment));
-        memset(ptr2, 0x0, alignment*2);
-        xxfree(ptr2);
+        for(int i=0; i<ITERATIONS; i++)
+            xxfree(ptrs[i]);
 
-        void *ptr3 = xxmemalign(alignment, alignment/2);
-        printf("Required alignment 0x%x got pointer @%p\n", alignment, ptr3);
-        assert(ptr3);
-        assert(!((uint64_t)ptr3 % alignment));
-        memset(ptr3, 0x0, alignment/2);
-        xxfree(ptr3);
+        for(int i=0; i<ITERATIONS; i++) {
+            ptrs2[i] = xxmemalign(alignment, alignment*2);
+#if VERBOSE == 1
+            printf("Required alignment 0x%x got pointer @%p\n", alignment,
+                    ptrs2[i]);
+#endif
+            assert(ptrs2[i]);
+            assert(!((uint64_t)ptrs2[i] % alignment));
+            memset(ptrs2[i], 0x0, alignment*2);
+        }
+
+        for(int i=0; i<ITERATIONS; i++)
+            xxfree(ptrs2[i]);
+
+        for(int i=0; i<ITERATIONS; i++) {
+            ptrs3[i] = xxmemalign(alignment, alignment/2);
+#if VERBOSE == 1
+            printf("Required alignment 0x%x got pointer @%p\n", alignment,
+                    ptrs3[i]);
+#endif
+            assert(ptrs3[i]);
+            assert(!((uint64_t)ptrs3[i] % alignment));
+            memset(ptrs3[i], 0x0, alignment/2);
+        }
+
+        for(int i=0; i<ITERATIONS; i++)
+            xxfree(ptrs3[i]);
+
     }
 
 }
