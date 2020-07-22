@@ -14,7 +14,7 @@ $(EXE): % : %.c
 	$(CC) $(CFLAGS) -o $@ $^ $(SLIMGUARD) $(LDFLAGS)
 
 test: $(EXE)
-	$(foreach exe, $(EXE), echo "Running test for $(exe); scp -P 18999 $(exe) localhost:~ && ssh -p 18999 localhost ./$(exe);)
+	$(foreach exe, $(EXE), scp -P 18999 $(exe) localhost:~ && ssh -p 18999 localhost ./$(exe);)
 
 clean:
-	rm -rf $(EXE)
+	rm -rf *.o $(EXE)
