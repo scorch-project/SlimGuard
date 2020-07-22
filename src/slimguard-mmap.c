@@ -22,7 +22,7 @@ void * slimguard_mmap(uint64_t size, uint64_t align) {
 
     if(align) {
         void *old_addr = r;
-        r = (void *)(((uint64_t)r + align - 1) & ~(align - 1));
+        r = (void *)(((intptr_t)r + align - 1) & ~(align - 1));
         munmap(old_addr, (uint64_t)r - (uint64_t)old_addr);
     }
 
