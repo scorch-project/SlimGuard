@@ -1,5 +1,18 @@
 ## SlimGuard: A Secure and Memory-Efficient Heap Allocator
 
+This is the CHERI version of SlimGuard. For now the way to integrate it in an
+application is to recompile the application with SlimGuard sources after having
+replaced the calls to the malloc family of function into their SlimGuard
+equivalent: just prefix their name with `xx`, for example `malloc` becomes
+`xxmalloc`. The function in question are `malloc`, `free`, `realloc`, `calloc`,
+`memalign`.
+
+See examples in `test/cheri`.
+
+Original README below.
+
+---
+
 SlimGuard is a secure dynamic memory allocator whose design is driven by memory
 efficiency. We redesign the security features of state-of-the-art allocators
 with memory efficiency in mind. SlimGuard protects against widespread heap-related
