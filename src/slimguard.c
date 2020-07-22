@@ -206,12 +206,11 @@ void *get_next(uint8_t index){
     if(!(Class[index].size % PAGE_SIZE)) {
         intptr_t old_ret = (intptr_t)ret;
 
-        ret = (void *)(intptr_t)(((intptr_t)ret + (intptr_t)(Class[index].size) - 1) &
-                ~((intptr_t)(Class[index].size) - 1));
-        Class[index].guardpage =(void *)(intptr_t)((intptr_t)(Class[index].guardpage)
-                + ((intptr_t)ret - old_ret));
-        Class[index].current =(void *)(intptr_t)((intptr_t)(Class[index].current)
-                + ((intptr_t)ret - old_ret));
+	ret = (void *)__builtin_align_up(ret, Class[index].size);
+        Class[index].guardpage = (void *)((intptr_t)Class[index].guardpage +
+		(size_t)(ret - old_ret));
+        Class[index].current = (void *)((intptr_t)(Class[index].current) +
+		(size_t)(ret - old_ret));
     }
 
     return ret;
