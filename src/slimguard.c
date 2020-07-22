@@ -11,6 +11,7 @@
 #include "slimguard-mmap.h"
 
 #include <assert.h>
+#include <err.h>
 #include <pthread.h>
 
 const int tab64[64] = {
@@ -46,6 +47,21 @@ pthread_mutex_t global_lock;
 
 enum pool_state{null, init} STATE;
 
+/* *Really* minimal PCG32 code / (c) 2014 M.E. O'Neill / pcg-random.org
+ * See license for pcg32 in docs/pcg32-license.txt */
+typedef struct { uint64_t state;  uint64_t inc; } pcg32_random_t;
+__thread pcg32_random_t rng = {0x0, 0x0};
+
+uint32_t pcg32_random_r(void) {
+    uint64_t oldstate = rng.state;
+    // Advance internal state
+    rng.state = oldstate * 6364136223846793005ULL + (rng.inc|1);
+    // Calculate output function (XSH RR), uses old state for max ILP
+    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    uint32_t rot = oldstate >> 59u;
+    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+}
+
 /* convert a size to its corresponding size Class */
 uint8_t sz2cls(uint32_t sz) {
 
@@ -76,29 +92,15 @@ uint32_t round_sz(uint32_t sz) {
     return ((sz + ALIGN) &(~ALIGN));
 }
 
-/* get size byte of virtual memory */
-void* get_mem(uint64_t size) {
-    void* ret = NULL;
-
-    ret = slimguard_mmap(size);
-    Debug("ret %p %lu\n", ret, size);
-
-    if (ret == NULL) {
-        Error("cannot mmap for size %lu\n", size);
-        exit(-1);
-    }
-
-    return ret;
-}
-
 /* SlimGuard initialization */
 void init_bibop() {
-    srand(time(NULL));
+    rng.state = time(NULL);
+    rng.inc = time(NULL);
 
     Debug("Entropy %d\n", ETP);
 
 #ifdef USE_CANARY
-    seed = time(NULL) % SEED_MAX;
+    seed = pcg32_random_r();
 #endif
 
     for (int i = 0; i < INDEX; i++) {
@@ -111,7 +113,18 @@ void init_bibop() {
 /* Initialize each size class, fill in per size class data structure */
 void init_bucket(uint8_t index) {
     if (Class[index].start == NULL) {
-        void* addr = get_mem(BUCKET_SIZE); // start address of a bucket
+
+        /* If the size class manage a power of two, make sure that each slot is
+         * aligned to the power of two in question. This is useful to manage
+         * alignment requirements, see comments in xxmemalign */
+        uint32_t align = 0;
+        uint32_t sz = cls2sz(index);
+        if(sz > PAGE_SIZE && (sz & (sz - 1)) == 0)
+            align = sz;
+
+        void* addr = slimguard_mmap(BUCKET_SIZE, align); // bucket start addr
+        if(!addr)
+            errx(-1, "Cannot allocate class %d data area\n", index);
 
         Class[index].head = NULL; // head of the sll contains free pointers
         Class[index].start = addr; // start address of the current bucket
@@ -129,7 +142,9 @@ void init_bucket(uint8_t index) {
                 Class[index].start);
 
 #ifdef RELEASE_MEM
-        page_counter[index] = get_mem(4<<20);
+        page_counter[index] = slimguard_mmap(4<<20, 0);
+        if(!page_counter[index])
+            errx(-1, "Cannot allocate mem. for class %d page counter\n", index);
 #endif
 
         Debug("index: %u size: %u %p %p %p\n", index, Class[index].size,
@@ -157,7 +172,7 @@ void *get_next(uint8_t index){
     void* ret = Class[index].current;
 
 #ifdef GUARDPAGE
-    if ((ret >= Class[index].guardpage) |
+    if ((ret >= Class[index].guardpage) ||
         ((uint64_t)ret + cls2sz(index) >= (uint64_t)Class[index].guardpage)){
         ret = (void *)((((uint64_t )Class[index].guardpage >> 12) + 1) << 12);
     }
@@ -171,7 +186,7 @@ void *get_next(uint8_t index){
     }
 
 #ifdef GUARDPAGE
-    if( (ret > Class[index].guardpage) |
+    if( (ret > Class[index].guardpage) ||
         ((uint64_t)ret + Class[index].size >=
          (uint64_t)Class[index].guardpage)) {
         void * next_guard = (void *)((((uint64_t)Class[index].current >> 12) +
@@ -186,12 +201,25 @@ void *get_next(uint8_t index){
     }
 #endif
 
+    /* We require slots managing power of two allocations to be aligned on
+     * their sizes to properly serve memalign requests */
+    if(!(Class[index].size % PAGE_SIZE)) {
+        uint64_t old_ret = (uint64_t)ret;
+
+        ret = (void *)(((uint64_t)ret + (uint64_t)(Class[index].size) - 1) &
+                ~((uint64_t)(Class[index].size) - 1));
+        Class[index].guardpage =(void *)((uint64_t)(Class[index].guardpage)
+                + ((uint64_t)ret - old_ret));
+        Class[index].current =(void *)((uint64_t)(Class[index].current)
+                + ((uint64_t)ret - old_ret));
+    }
+
     return ret;
 }
 
 /* select a random object in a bucket */
 void* get_random_obj(uint8_t index) {
-    uint16_t i = rand() % BKT;
+    uint16_t i = pcg32_random_r() % BKT;
     void *ret = Class[index].bucket[i];
 
     if (!ret) {
@@ -362,7 +390,7 @@ void* xxmalloc(size_t sz) {
 
     if (need >= (1 << 17)) {
         Debug("sz %lu\n", need);
-        ret = xxmalloc_large(need);
+        ret = xxmalloc_large(need, 0);
     } else {
         if (STATE == null) {
             /* Lock here */
@@ -480,11 +508,12 @@ void* xxrealloc(void *ptr, size_t size) {
 }
 
 void* xxmemalign(size_t alignment, size_t size) {
-    /* Here we used a small trick, Our power of 2 size classesrealigned,
-     * if alignment is larger than size, we just malloc alignment to give
-     * it an address,
-     * if alignment is smaller than size, we round the size to the next
-     * power of 2.
+    /* Here we use a small trick, for power of 2 sizes, each slot in the data
+     * area is aligned to a multiple of its size so if alignment is larger than
+     * size, we just malloc alignment to give it an address, if alignment is
+     * smaller than size, we round the size to the next power of 2. When the
+     * size needed cannot be managed as a small allocation, we use a large one
+     * with alignment constraint.
      */
 
     if(alignment &(alignment-1)){
@@ -497,13 +526,21 @@ void* xxmemalign(size_t alignment, size_t size) {
 #endif
 
     if(alignment >= size) {
-        return xxmalloc(alignment-1);
+        if (alignment < (1 << 17))
+            return xxmalloc(alignment-1);
+        else
+            return xxmalloc_large(alignment, alignment);
     } else {
 #ifdef USE_CANARY
         uint64_t need = (1 << ((uint8_t)log2_64(size) + 1))-1;
+        int need_large = (need+1) >= (1 << 17);
 #else
         uint64_t need = (1 << ((uint8_t)log2_64(size) + 1));
+        int need_large = (need) >= (1 << 17);
 #endif
+        if(need_large)
+            return xxmalloc_large(need, alignment);
+
         return xxmalloc(need);
     }
 }

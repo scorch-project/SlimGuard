@@ -13,7 +13,7 @@ set(destroy-on-free off)
 
 include_directories(../include/)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-deprecated-declarations -O2")
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-deprecated-declarations -O0 -g")
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lpthread")
 
 if(debug)
@@ -45,6 +45,7 @@ set(slimguard-large ${debug} ../test/slimguard-large-test.c)
 set(memalign ${debug} ../test/memalign.c)
 set(memalign-free ${debug} ../test/memalign-free.c)
 set(large-alloc ${debug} ../test/large-alloc.c)
+set(memory-content ${debug} ../test/memory-content.c)
 set(slimguard-test ${debug} ../test/slimguard-test.c)
 set(malloc-test ${debug} ../test/malloc-test.c)
 set(mimalloc-test ${debug} ../test/mimalloc-test.c)

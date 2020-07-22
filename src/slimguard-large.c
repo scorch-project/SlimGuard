@@ -19,9 +19,9 @@ large_obj_t* next_obj(large_obj_t *node) {
 
 void add_large(void *addr, uint32_t align_sz) {
     if (large_list == NULL) {
-        large_list =
-            (large_obj_t *)slimguard_mmap(sizeof(struct large_obj_t *));
 
+        large_list = (struct large_obj_t *)
+            slimguard_mmap(sizeof(struct large_obj_t *), 0);
         if (large_list == NULL) {
             Error("fails to mmap for size %lu\n", sizeof(struct large_list *));
             exit(-1);
@@ -34,9 +34,8 @@ void add_large(void *addr, uint32_t align_sz) {
         return;
     }
 
-    large_obj_t *node =
-        (large_obj_t *)slimguard_mmap(sizeof(struct large_obj_t *));
-
+    large_obj_t *node = (struct large_obj_t *)
+        slimguard_mmap(sizeof(struct large_obj_t *), 0);
     if (node == NULL) {
         Error("fails to mmap for size %lu\n", sizeof(struct large_obj_t *));
         exit(-1);
@@ -106,15 +105,16 @@ void print_large() {
     }
 }
 
-void* xxmalloc_large(size_t sz) {
+void* xxmalloc_large(size_t sz, uint32_t align) {
     size_t need;
+    void *ret;
 
     if (sz & 0xff)
         need = ((sz >> 8)+1) << 8;
     else
         need = sz;
 
-    void *ret = slimguard_mmap(need);
+    ret = slimguard_mmap(need, align);
     if (ret == NULL) {
         Error("fails to mmap for size %lu\n", sz);
         exit(-1);
