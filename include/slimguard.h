@@ -70,5 +70,6 @@ void* slimguard_malloc(size_t sz);
 void  slimguard_free(void *ptr);
 void* slimguard_realloc(void *ptr, size_t sz);
 void* slimguard_memalign(size_t alignment, size_t sz);
+void *slimguard_calloc(size_t nmemb, size_t size);
 
 #endif /* SLIMGUARD_H */

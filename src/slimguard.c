@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <err.h>
 #include <pthread.h>
+#include <cheri/cheric.h>
 
 const int tab64[64] = {
   63,  0, 58,  1, 59, 47, 53,  2,
@@ -142,7 +143,7 @@ void init_bucket(uint8_t index) {
                 Class[index].start);
 
 #ifdef RELEASE_MEM
-        page_counter[index] = slimguard_mmap(4<<20, 0);
+        page_counter[index] = (uint16_t *)slimguard_mmap(4<<20, 0);
         if(!page_counter[index])
             errx(-1, "Cannot allocate mem. for class %d page counter\n", index);
 #endif
@@ -151,7 +152,7 @@ void init_bucket(uint8_t index) {
                 Class[index].start, Class[index].stop, Class[index].current);
 
 #ifdef GUARDPAGE
-        void* next_page = (void *)((((uint64_t)Class[index].current >> 12)
+        void* next_page = (void *)((((intptr_t)Class[index].current >> 12)
                     + 1 ) <<12);
         if (mprotect(next_page, PAGE_SIZE-1, PROT_NONE) == 0) {
             Class[index].guardpage = next_page;
@@ -174,7 +175,7 @@ void *get_next(uint8_t index){
 #ifdef GUARDPAGE
     if ((ret >= Class[index].guardpage) ||
         ((uint64_t)ret + cls2sz(index) >= (uint64_t)Class[index].guardpage)){
-        ret = (void *)((((uint64_t )Class[index].guardpage >> 12) + 1) << 12);
+        ret = (void *)((((intptr_t )Class[index].guardpage >> 12) + 1) << 12);
     }
 #endif
 
@@ -184,22 +185,6 @@ void *get_next(uint8_t index){
         Error("not enough mem %u\n", Class[index].size);
         exit(-1);
     }
-
-#ifdef GUARDPAGE
-    if( (ret > Class[index].guardpage) ||
-        ((uint64_t)ret + Class[index].size >=
-         (uint64_t)Class[index].guardpage)) {
-        void * next_guard = (void *)((((uint64_t)Class[index].current >> 12) +
-                    GP ) <<12);
-
-        if (mprotect(next_guard, PAGE_SIZE-1, PROT_NONE) == 0) {
-            Class[index].guardpage = next_guard;
-        } else {
-            perror("mprotect");
-            exit(-1);
-        }
-    }
-#endif
 
     /* We require slots managing power of two allocations to be aligned on
      * their sizes to properly serve memalign requests */
@@ -212,6 +197,22 @@ void *get_next(uint8_t index){
         Class[index].current = (void *)((intptr_t)(Class[index].current) +
 		(size_t)(ret - old_ret));
     }
+
+#ifdef GUARDPAGE
+    if( (ret > Class[index].guardpage) ||
+        ((uint64_t)ret + Class[index].size >=
+         (uint64_t)Class[index].guardpage)) {
+        void * next_guard = (void *)((((intptr_t)Class[index].current >> 12) +
+                    GP ) <<12);
+
+        if (mprotect(next_guard, PAGE_SIZE-1, PROT_NONE) == 0) {
+            Class[index].guardpage = next_guard;
+        } else {
+            perror("mprotect");
+            exit(-1);
+        }
+    }
+#endif
 
     return ret;
 }
@@ -313,7 +314,7 @@ void increment_pc(void *ptr, uint8_t index) {
 
     do {
         pc_index = (curr_page - (uint64_t)Class[index].start)/PAGE_SIZE;
-        pc = (uint16_t *)((uint64_t)page_counter[index] + pc_index*sizeof(uint16_t));
+        pc = (uint16_t *)((intptr_t)page_counter[index] + pc_index*sizeof(uint16_t));
         *pc = *pc + 1;
         curr_page += PAGE_SIZE;
     } while((uint64_t) ptr+obj_size >= curr_page);
@@ -328,11 +329,11 @@ void decrement_pc(void *ptr, uint8_t index) {
 
     do {
         pc_index = (curr_page- (uint64_t)Class[index].start)/PAGE_SIZE;
-        pc = (uint16_t *)((uint64_t)page_counter[index] + pc_index*sizeof(uint16_t));
+        pc = (uint16_t *)((intptr_t)page_counter[index] + pc_index*sizeof(uint16_t));
         *pc = *pc - 1;
 
         if (*pc == 0)
-            madvise((void *)curr_page, PAGE_SIZE-1, MADV_DONTNEED);
+            madvise((void *)((intptr_t)curr_page), PAGE_SIZE-1, MADV_DONTNEED);
 
         curr_page += PAGE_SIZE;
     } while((uint64_t) ptr + obj_size >= curr_page);
@@ -430,7 +431,6 @@ void* xxmalloc(size_t sz) {
 #ifdef USE_CANARY
     set_canary(ret, index);
 #endif
-
   }
 
   return ret;
@@ -438,6 +438,7 @@ void* xxmalloc(size_t sz) {
 /* SlimGuard free */
 void xxfree(void *ptr) {
     uint8_t index = 255;
+    void * valid_cap;
 
     if (ptr == NULL)
         return;
@@ -456,12 +457,14 @@ void xxfree(void *ptr) {
         }
     }
 
+    valid_cap = Class[index].start + (ptr - Class[index].start);
+
 #ifdef USE_CANARY
-    get_canary(ptr, index);
+    get_canary(valid_cap, index);
 #endif
 
 #ifdef DESTROY_ON_FREE
-    memset(ptr, 0, Class[index].size);
+    memset(valid_cap, 0, Class[index].size);
 #endif
 
     /* Lock here */
@@ -469,7 +472,7 @@ void xxfree(void *ptr) {
 #ifdef RELEASE_MEM
     decrement_pc(ptr, index);
 #endif
-    Class[index].head = add_head((sll_t *)ptr, Class[index].head);
+    Class[index].head = add_head((sll_t *)valid_cap, Class[index].head);
     mark_free(ptr, index);
     pthread_mutex_unlock(&(Class[index].lock));
     /* Lock end */
@@ -482,6 +485,7 @@ void* xxrealloc(void *ptr, size_t size) {
 #endif
     uint8_t index1, index2;
     void* ret = ptr;
+    size_t size1; /* size of object pointed by ptr */
 
     if(ptr == NULL)
         return xxmalloc(size);
@@ -494,8 +498,13 @@ void* xxrealloc(void *ptr, size_t size) {
     index1 = find_sz_cls(ptr); // old size
     index2 = sz2cls(size); // new size
 
-    size_t size1 = (index1 == 255) ?
+#ifdef __CHERI_PURE_CAPABILITY__
+    size1 = (index1 == 255) ?
+                   get_large_object_size(ptr) : cheri_getlen(ptr);
+#else
+    size1 = (index1 == 255) ?
                    get_large_object_size(ptr) : Class[index1].size;
+#endif
 
     if( index2 >= index1) {
         ret = xxmalloc(size);
@@ -557,20 +566,41 @@ void * xxcalloc(size_t nmemb, size_t size) {
     return ret;
 }
 
-/* high level SlimGuard API that is called by gnuwrapper */
+/* high level SlimGuard API called by the application */
+
 void* slimguard_malloc(size_t size) {
-  return xxmalloc(size);
+#ifdef __CHERI_PURE_CAPABILITY__
+    return cheri_setbounds(xxmalloc(size), size);
+#else
+    return xxmalloc(size);
+#endif
 }
 
 void slimguard_free(void *ptr) {
-  xxfree(ptr);
+    xxfree(ptr);
 }
 
 void* slimguard_realloc(void *ptr, size_t size) {
-  return xxrealloc(ptr, size);
+#ifdef __CHERI_PURE_CAPABILITY__
+    return cheri_setbounds(xxrealloc(ptr, size), size);
+#else
+    return xxrealloc(ptr, size);
+#endif
+
 }
 
 void* slimguard_memalign(size_t alignment, size_t size) {
-  return xxmemalign(alignment, size);
+#ifdef __CHERI_PURE_CAPABILITY__
+    return cheri_setbounds(xxmemalign(alignment, size), size);
+#else
+    return xxmemalign(alignment, size);
+#endif
 }
 
+void * slimguard_calloc(size_t nmemb, size_t size) {
+#ifdef __CHERI_PURE_CAPABILITY__
+    return cheri_setbounds(xxcalloc(nmemb, size), nmemb*size);
+#else
+    return xxcalloc(nmemb, size);
+#endif
+}
