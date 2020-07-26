@@ -13,11 +13,11 @@
 #endif
 
 int main(int argc, char **argv) {
-    void *ptr = xxmalloc(OLD_SIZE);
+    void *ptr = slimguard_malloc(OLD_SIZE);
     assert(ptr);
     memset(ptr, 0x0, OLD_SIZE);
 
-    ptr = xxrealloc(ptr, NEW_SIZE);
+    ptr = slimguard_realloc(ptr, NEW_SIZE);
     memset((char *)ptr + OLD_SIZE, 0x0, NEW_SIZE - OLD_SIZE);
 
     for(int i=0; i<NEW_SIZE; i++) {
@@ -25,5 +25,5 @@ int main(int argc, char **argv) {
         assert(val == 0);
     }
 
-    xxfree(ptr);
+    slimguard_free(ptr);
 }

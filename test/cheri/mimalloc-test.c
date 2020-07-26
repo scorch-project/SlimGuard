@@ -48,9 +48,9 @@ static size_t use_one_size = 0;              // use single object size of `N * s
 
 
 #ifdef USE_STD_MALLOC
-#define custom_calloc(n,s)    xxcalloc(n,s)
-#define custom_realloc(p,s)   xxrealloc(p,s)
-#define custom_free(p)        xxfree(p)
+#define custom_calloc(n,s)    slimguard_calloc(n,s)
+#define custom_realloc(p,s)   slimguard_realloc(p,s)
+#define custom_free(p)        slimguard_free(p)
 #else
 #define custom_calloc(n,s)    mi_calloc(n,s)
 #define custom_realloc(p,s)   mi_realloc(p,s)

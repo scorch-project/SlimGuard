@@ -216,10 +216,10 @@ bin_alloc(m) struct bin *m;
         r = RANDOM(1024);
         if(r < PROB_MEMALIGN) {
 #if !defined(_WIN32)
-                if(m->size > 0) xxfree(m->ptr);
+                if(m->size > 0) slimguard_free(m->ptr);
                 m->size = random_size(size);
 #if PROB_MEMALIGN
-                m->ptr = (unsigned char *)xxmemalign(4 << RANDOM(8), m->size);
+                m->ptr = (unsigned char *)slimguard_memalign(4 << RANDOM(8), m->size);
 #endif
 
 #endif
@@ -229,7 +229,7 @@ bin_alloc(m) struct bin *m;
                         m->ptr = NULL;
 #else
                         /* SunOS4 does not realloc() a NULL pointer */
-                        m->ptr = (unsigned char *)xxmalloc(1);
+                        m->ptr = (unsigned char *)slimguard_malloc(1);
 #endif
                 }
 #if TEST > 2
@@ -239,7 +239,7 @@ bin_alloc(m) struct bin *m;
 #endif
                 m->size = random_size(size);
                 /*printf("realloc %d\n", (int)m->size);*/
-                m->ptr = (unsigned char *)xxrealloc(m->ptr, m->size);
+                m->ptr = (unsigned char *)slimguard_realloc(m->ptr, m->size);
 #if TEST > 2
                 if(m->size < sz) sz = m->size;
                 for(r=0; (long unsigned)r<sz; r++)
@@ -249,9 +249,9 @@ bin_alloc(m) struct bin *m;
                         }
 #endif
         } else if(r < (PROB_MEMALIGN + PROB_REALLOC + PROB_CALLOC)) {
-                if(m->size > 0) xxfree(m->ptr);
+                if(m->size > 0) slimguard_free(m->ptr);
                 m->size = random_size(size);
-                m->ptr = (unsigned char *)calloc(m->size, 1);
+                m->ptr = (unsigned char *)slimguard_calloc(m->size, 1);
 #if TEST > 2
                 for(r=0; (long unsigned)r<m->size; r++)
                         if(m->ptr[r] != '\0') {
@@ -260,9 +260,9 @@ bin_alloc(m) struct bin *m;
                         }
 #endif
         } else { /* normal malloc call */
-                if(m->size > 0) xxfree(m->ptr);
+                if(m->size > 0) slimguard_free(m->ptr);
                 m->size = random_size(size);
-                m->ptr = (unsigned char *)xxmalloc(m->size);
+                m->ptr = (unsigned char *)slimguard_malloc(m->size);
         }
         if(!m->ptr) {
                 printf("out of memory!\n");
@@ -296,7 +296,7 @@ bin_free(m) struct bin *m;
         }
 #endif
         total_size -= m->size;
-        xxfree(m->ptr);
+        slimguard_free(m->ptr);
         m->size = 0;
 }
 
@@ -376,10 +376,10 @@ main(argc, argv) int argc; char *argv[];
         }
         /* attempt to fill up the region below the initial brk */
         for(i=0; i<10000; i++) {
-                dummy = xxmalloc(1);
+                dummy = slimguard_malloc(1);
                 if(dummy >= (void*)base_ptr) break;
         }
-        xxfree(dummy);
+        slimguard_free(dummy);
         base_save = ((unsigned long)base_ptr >> 24) << 24;
 #endif
 

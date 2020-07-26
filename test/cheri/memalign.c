@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
         void *ptrs3[ITERATIONS];
 
         for(int i=0; i<ITERATIONS; i++) {
-            ptrs[i] = xxmemalign(alignment, alignment);
+            ptrs[i] = slimguard_memalign(alignment, alignment);
             assert(ptrs[i]);
 #if VERBOSE == 1
             printf("Required alignment 0x%x got pointer @%p\n", alignment,
@@ -26,10 +26,10 @@ int main(int argc, char **argv) {
         }
 
         for(int i=0; i<ITERATIONS; i++)
-            xxfree(ptrs[i]);
+            slimguard_free(ptrs[i]);
 
         for(int i=0; i<ITERATIONS; i++) {
-            ptrs2[i] = xxmemalign(alignment, alignment*2);
+            ptrs2[i] = slimguard_memalign(alignment, alignment*2);
 #if VERBOSE == 1
             printf("Required alignment 0x%x got pointer @%p\n", alignment,
                     ptrs2[i]);
@@ -40,10 +40,10 @@ int main(int argc, char **argv) {
         }
 
         for(int i=0; i<ITERATIONS; i++)
-            xxfree(ptrs2[i]);
+            slimguard_free(ptrs2[i]);
 
         for(int i=0; i<ITERATIONS; i++) {
-            ptrs3[i] = xxmemalign(alignment, alignment/2);
+            ptrs3[i] = slimguard_memalign(alignment, alignment/2);
 #if VERBOSE == 1
             printf("Required alignment 0x%x got pointer @%p\n", alignment,
                     ptrs3[i]);
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
         }
 
         for(int i=0; i<ITERATIONS; i++)
-            xxfree(ptrs3[i]);
+            slimguard_free(ptrs3[i]);
 
     }
 
