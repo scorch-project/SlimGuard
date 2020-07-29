@@ -612,3 +612,25 @@ void * slimguard_calloc(size_t nmemb, size_t size) {
     return xxcalloc(nmemb, size);
 #endif
 }
+
+/* High level SlimGuard API called to get capability protected buffers from
+ * hybrid code */
+void * __capability slimguard_hc_malloc(size_t size) {
+    return cheri_ptr(xxmalloc(size), size);
+}
+
+void slimguard_hc_free(void * __capability ptr) {
+    xxfree((__cheri_fromcap void *)ptr);
+}
+
+void * __capability slimguard_hc_realloc(void * __capability ptr, size_t size) {
+    return cheri_ptr(xxrealloc((__cheri_fromcap void *)ptr, size), size);
+}
+
+void * __capability slimguard_hc_memalign(size_t alignment, size_t size) {
+    return cheri_ptr(xxmemalign(alignment, size), size);
+}
+
+void * __capability slimguard_hc_calloc(size_t nmemb, size_t size) {
+    return cheri_ptr(xxcalloc(nmemb, size), nmemb*size);
+}
