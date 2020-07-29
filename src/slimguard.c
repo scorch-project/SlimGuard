@@ -435,6 +435,7 @@ void* xxmalloc(size_t sz) {
 
   return ret;
 }
+
 /* SlimGuard free */
 void xxfree(void *ptr) {
     uint8_t index = 255;
@@ -457,6 +458,13 @@ void xxfree(void *ptr) {
         }
     }
 
+    /* We need to access the slot to check for canary and possibly destroy on
+     * free. If it's a capability, it may allow access to only a subset of the
+     * slot as the malloc & friends function will set the capability bound to
+     * the exact size requested by the user. So we need to derive a larger
+     * capability from our owns with this trick. We could probably use
+     * setbounds or incoffset but that would make the code cheri specific and
+     * we have already enough #ifdefs */
     valid_cap = Class[index].start + (ptr - Class[index].start);
 
 #ifdef USE_CANARY
