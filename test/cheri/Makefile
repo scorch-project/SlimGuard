@@ -1,6 +1,7 @@
+# purecap or hybrid
 ABI=purecap
 
-CFLAGS=-I../../include -g -O0 -DUSE_CANARY -DRELEASE_MEM -DDESTROY_ON_FREE -DGUARDPAGE
+CFLAGS=-I../../include -g -O0 -DRELEASE_MEM -DUSE_CANARY -DDESTROY_ON_FREE -DGUARDPAGE
 SLIMGUARD=../../src/slimguard.c ../../src/slimguard-large.c ../../src/slimguard-mmap.c ../../src/sll.c
 
 ifeq ($(ABI),purecap)
@@ -19,7 +20,7 @@ HYBRID_EXE= hybrid-slimguard-test hybrid-calloc hybrid-large-alloc \
 LDFLAGS=-lpthread
 
 ifeq ($(ABI),hybrid)
-EXE=$(EXE) $(HYBRID_EXE)
+EXE+= $(HYBRID_EXE)
 endif
 
 all: $(EXE)
