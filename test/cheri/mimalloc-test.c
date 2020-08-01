@@ -109,7 +109,7 @@ static void* alloc_items(size_t items, random_t r) {
   uintptr_t* p = (uintptr_t*)custom_calloc(items,sizeof(uintptr_t));
   if (p != NULL) {
     for (uintptr_t i = 0; i < items; i++) {
-      p[i] = (items - i) ^ cookie;
+      p[i] = (items - i) ^ (size_t)cookie;
     }
   }
   return p;
@@ -118,10 +118,10 @@ static void* alloc_items(size_t items, random_t r) {
 static void free_items(void* p) {
   if (p != NULL) {
     uintptr_t* q = (uintptr_t*)p;
-    uintptr_t items = (q[0] ^ cookie);
+    uintptr_t items = (q[0] ^ (size_t)cookie);
     for (uintptr_t i = 0; i < items; i++) {
-      if ((q[i] ^ cookie) != items - i) {
-        fprintf(stderr, "memory corruption at block %p at %zu\n", p, i);
+      if ((q[i] ^ (size_t)cookie) != items - (size_t)i) {
+        fprintf(stderr, "memory corruption at block %p at %zu\n", p, (size_t)i);
         abort();
       }
     }
