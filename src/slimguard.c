@@ -152,8 +152,8 @@ void init_bucket(uint8_t index) {
                 Class[index].start, Class[index].stop, Class[index].current);
 
 #ifdef GUARDPAGE
-        void* next_page = (void *)((((intptr_t)Class[index].current >> 12)
-                    + 1 ) <<12);
+        void *next_page = __builtin_align_up(Class[index].current + PAGE_SIZE,
+                PAGE_SIZE);
         if (mprotect(next_page, PAGE_SIZE-1, PROT_NONE) == 0) {
             Class[index].guardpage = next_page;
         } else {
@@ -175,7 +175,7 @@ void *get_next(uint8_t index){
 #ifdef GUARDPAGE
     if ((ret >= Class[index].guardpage) ||
         ((uint64_t)ret + cls2sz(index) >= (uint64_t)Class[index].guardpage)){
-        ret = (void *)((((intptr_t )Class[index].guardpage >> 12) + 1) << 12);
+        ret = __builtin_align_up(Class[index].guardpage + PAGE_SIZE, PAGE_SIZE);
     }
 #endif
 
@@ -186,6 +186,7 @@ void *get_next(uint8_t index){
         exit(-1);
     }
 
+#ifdef GUARDPAGE
     /* We require slots managing power of two allocations to be aligned on
      * their sizes to properly serve memalign requests */
     if(!(Class[index].size % PAGE_SIZE)) {
@@ -198,12 +199,11 @@ void *get_next(uint8_t index){
 		(size_t)(ret - old_ret));
     }
 
-#ifdef GUARDPAGE
     if( (ret > Class[index].guardpage) ||
         ((uint64_t)ret + Class[index].size >=
          (uint64_t)Class[index].guardpage)) {
-        void * next_guard = (void *)((((intptr_t)Class[index].current >> 12) +
-                    GP ) <<12);
+        void * next_guard = __builtin_align_up(Class[index].current +
+                GP * PAGE_SIZE, PAGE_SIZE);
 
         if (mprotect(next_guard, PAGE_SIZE-1, PROT_NONE) == 0) {
             Class[index].guardpage = next_guard;
@@ -249,7 +249,7 @@ char HashPointer(void* ptr) {
 
 /* put the canary to the end of each block, set it to MAGIC NUMBER */
 void set_canary(void * ptr, uint8_t index) {
-    char* end = (char *)((unsigned char *)ptr + Class[index].size - 1);
+    char* end = ptr + (intptr_t)(Class[index].size - 1);
     *end = HashPointer(ptr);
 
 #ifdef DEBUG
