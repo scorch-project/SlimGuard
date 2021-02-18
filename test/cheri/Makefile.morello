@@ -2,7 +2,7 @@
 CHERIBSD_ROOT=../../../../
 
 # purecap or hybrid
-ABI=purecap
+ABI=hybrid
 
 CFLAGS=-I../../include -g -O0 -DRELEASE_MEM -DUSE_CANARY -DDESTROY_ON_FREE -DGUARDPAGE
 SLIMGUARD=../../src/slimguard.c ../../src/slimguard-large.c ../../src/slimguard-mmap.c ../../src/sll.c
@@ -30,6 +30,7 @@ LDFLAGS=-static
 
 ifeq ($(ABI),hybrid)
 EXE=$(HYBRID_EXE)
+LDFLAGS+=-lpthread
 endif
 
 all: $(EXE)

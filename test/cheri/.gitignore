@@ -8,5 +8,14 @@ mimalloc-test
 slimguard-large-test
 slimguard-test
 sll-test
-
+hello
+hybrid-calloc
+hybrid-hello
+hybrid-large-alloc
+hybrid-malloc-test
+hybrid-memalign
+hybrid-memalign-free
+hybrid-memory-content
+hybrid-mimalloc-test
+hybrid-slimguard-test
 realloc
