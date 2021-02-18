@@ -1,0 +1,47 @@
+# Morello's cheribsd install
+CHERIBSD_ROOT=../../../../
+
+# purecap or hybrid
+ABI=purecap
+
+CFLAGS=-I../../include -g -O0 -DRELEASE_MEM -DUSE_CANARY -DDESTROY_ON_FREE -DGUARDPAGE
+SLIMGUARD=../../src/slimguard.c ../../src/slimguard-large.c ../../src/slimguard-mmap.c ../../src/sll.c
+CC=$(CHERIBSD_ROOT)/output/morello-sdk/bin/clang
+
+
+ifeq ($(ABI),purecap)
+    CONFIG=$(CHERIBSD_ROOT)/output/morello-sdk/bin/cheribsd-morello-purecap.cfg
+else
+    CONFIG=$(CHERIBSD_ROOT)/output/morello-sdk/bin/cheribsd-morello-hybrid.cfg
+endif
+
+CFLAGS+=--config $(CONFIG)
+CFLAGS+=--sysroot $(CHERIBSD_ROOT)/output/morello-sdk/sysroot-morello-purecap/
+
+# mimalloc-test uses pthread, not supported well by morello yet...
+EXE=calloc memalign-free sll-test large-alloc memalign \
+	slimguard-large-test malloc-test memory-content slimguard-test \
+	realloc hello # mimalloc-test
+HYBRID_EXE= hybrid-slimguard-test hybrid-calloc hybrid-large-alloc \
+    hybrid-memalign-free hybrid-memalign hybrid-memory-content \
+    hybrid-mimalloc-test hybrid-malloc-test hybrid-hello
+
+LDFLAGS=-static
+
+ifeq ($(ABI),hybrid)
+EXE=$(HYBRID_EXE)
+endif
+
+all: $(EXE)
+
+.SUFFIXES:
+
+$(EXE): % : %.c $(SLIMGUARD)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+test: $(EXE)
+	$(foreach exe, $(EXE), scp -P 12345 $(exe) root@localhost:~ && \
+		ssh -p 12345 root@localhost ./$(exe);)
+
+clean:
+	rm -rf *.o $(EXE) $(HYBRID_EXE)

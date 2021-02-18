@@ -394,9 +394,9 @@ void* xxmalloc(size_t sz) {
     } else {
         if (STATE == null) {
             /* Lock here */
-            pthread_mutex_lock(&global_lock);
+//            pthread_mutex_lock(&global_lock);
             init_bibop();
-            pthread_mutex_unlock(&global_lock);
+//            pthread_mutex_unlock(&global_lock);
             /* Lock end */
         }
 
@@ -408,7 +408,7 @@ void* xxmalloc(size_t sz) {
         }
 
     /* Lock here */
-    pthread_mutex_lock(&(Class[index].lock));
+//    pthread_mutex_lock(&(Class[index].lock));
 
     if (Class[index].start == NULL)
         init_bucket(index);
@@ -425,7 +425,7 @@ void* xxmalloc(size_t sz) {
 #endif
     mark_used(ret, index);
 
-    pthread_mutex_unlock(&(Class[index].lock));
+//    pthread_mutex_unlock(&(Class[index].lock));
     /* Lock end */
 
 #ifdef USE_CANARY
@@ -476,13 +476,13 @@ void xxfree(void *ptr) {
 #endif
 
     /* Lock here */
-    pthread_mutex_lock(&(Class[index].lock));
+//    pthread_mutex_lock(&(Class[index].lock));
 #ifdef RELEASE_MEM
     decrement_pc(ptr, index);
 #endif
     Class[index].head = add_head((sll_t *)valid_cap, Class[index].head);
     mark_free(ptr, index);
-    pthread_mutex_unlock(&(Class[index].lock));
+//    pthread_mutex_unlock(&(Class[index].lock));
     /* Lock end */
 }
 

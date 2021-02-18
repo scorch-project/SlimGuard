@@ -121,9 +121,9 @@ void* xxmalloc_large(size_t sz, uint32_t align) {
     }
 
     /* Lock here */
-    pthread_mutex_lock(&lock);
+//    pthread_mutex_lock(&lock);
     add_large(ret, need);
-    pthread_mutex_unlock(&lock);
+//    pthread_mutex_unlock(&lock);
     /* Lock end */
 
     return ret;
@@ -137,9 +137,9 @@ int xxfree_large(void *ptr) {
         munmap(ptr, ret->align_size);
 
         /* Lock here */
-        pthread_mutex_lock(&lock);
+//        pthread_mutex_lock(&lock);
         remove_large(ptr);
-        pthread_mutex_unlock(&lock);
+//        pthread_mutex_unlock(&lock);
         /* Lock end */
 
         return 1;
